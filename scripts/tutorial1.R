@@ -1,7 +1,6 @@
 # Tutorial 1
 
 # (a)
-
 mle <- 13/185
 
 logL <- function(theta){
