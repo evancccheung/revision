@@ -126,4 +126,71 @@ prostate.col <- prostate # create new predictor
 prostate.col$new1 <- prostate.col$lcavol + prostate.col$lweight # sum two variables
 
 coefficients(lm(lpsa~lcavol+lweight+new1, data=prostate.col)) # OLS
-coef(glmnet(lpsa~lcavol+lweight+new1, alpha=1))
+coef(glmnet(x=model.matrix(lpsa ~ lcavol + lweight + new1 - 1, data=prostate.col), 
+            y= prostate.col$lpsa, alpha=0, lambda=1)) # Ridge
+
+set.seed(234567)
+prostate.col$new2 <- prostate.col$new1 + rnorm(nrow(prostate.col), 0, 0.1) # create another new variable
+
+coefficients(lm(lpsa~lcavol+lweight+new2, data=prostate.col))
+coef(glmnet(x=model.matrix(lpsa~lcavol+lweight+new2-1, data=prostate.col), 
+            y=prostate.col$lpsa, alpha=0, lambda=1))
+# OLS is sensitive to multicollinearity, ridge is more robust
+
+# Number of predictors
+set.seed(21098)
+smallindex <- sample(1:nrow(prostate), 6)
+small <- prostate[smallindex, ]
+
+coefficients(lm(lpsa~lcavol+lweight+age+lbph+svi+lcp+gleason+pgg45, data=small)) # OLS
+
+x.small <- model.matrix(lpsa ~ lcavol + lweight + age + lbph + svi + lcp + gleason + pgg45 - 1,
+                        data=small)
+y.small <- small$lpsa
+small.ridge <- glmnet(x.small, y.small, alpha=0, lambda=c(0.1, 0.01)); coef(small.ridge)
+small.LASSO <- glmnet(x.small, y.small, alpha=1, lambda=c(0.1, 0.01)); coef(small.LASSO)
+
+# Elastic net (0 < alpha < 1)
+elastic000 <- glmnet(x, y, alpha=0)
+elastic005 <- glmnet(x, y, alpha=0.05)
+elastic010 <- glmnet(x, y, alpha=0.1)
+elastic020 <- glmnet(x, y, alpha=0.2)
+elastic050 <- glmnet(x, y, alpha=0.5)
+elastic080 <- glmnet(x, y, alpha=0.8)
+elastic090 <- glmnet(x, y, alpha=0.9)
+elastic095 <- glmnet(x, y, alpha=0.95)
+elastic100 <- glmnet(x, y, alpha=1)
+
+par(mfrow=c(3, 3))
+plot(elastic000, xvar="lambda", label=T, las=1)
+plot(elastic005, xvar="lambda", label=T, las=1)
+plot(elastic010, xvar="lambda", label=T, las=1)
+plot(elastic020, xvar="lambda", label=T, las=1)
+plot(elastic050, xvar="lambda", label=T, las=1)
+plot(elastic080, xvar="lambda", label=T, las=1)
+plot(elastic090, xvar="lambda", label=T, las=1)
+plot(elastic095, xvar="lambda", label=T, las=1)
+plot(elastic000, xvar="lambda", label=T, las=1)
+dev.off()
+
+# cross-validation to determine lambda
+set.seed(76543)
+elastic.cv <- cv.glmnet(x, y, alpha=0.5)
+plot(elastic.cv)
+
+# minimum MSE
+min(elastic.cv$cvm) # 0.61
+log(elastic.cv$lambda.min) # -2.96
+
+log(elastic.cv$lambda.1se) # 1-SE rule: lambda=-1.10
+coef(elastic050, s=elastic.cv$lambda.cv$lambda.1se) # non-zero coefficients
+elastic.pred <- predict(elastic050, newx=x.test, s=elastic.cv$lambda.1se)
+
+
+
+
+
+
+
+
+
